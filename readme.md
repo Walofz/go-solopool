@@ -1,6 +1,6 @@
-# Go Solo Mining Proxy
+# Go SoloPool
 
-ระบบ Solo Mining Proxy ประสิทธิภาพสูงและน้ำหนักเบา เขียนด้วยภาษา Go ออกแบบมาสำหรับเหรียญอัลกอริทึม SHA256d (Optimized สำหรับ Auroracoin) โดยเฉพาะ เพื่อเชื่อมต่อเครื่องขุด ASIC เข้ากับ Node โดยตรงสำหรับการขุดแบบ Solo
+ระบบ Solo Mining Pool ประสิทธิภาพสูงและน้ำหนักเบา เขียนด้วยภาษา Go ออกแบบมาสำหรับเหรียญอัลกอริทึม SHA256d โดยเฉพาะ เพื่อเชื่อมต่อเครื่องขุด ASIC เข้ากับ Node โดยตรงสำหรับการขุดแบบ Solo
 
 ## คุณสมบัติหลัก
 
@@ -39,5 +39,5 @@
 
 สามารถดูการส่ง Share และสถานะ AsicBoost ของเครื่องขุดแบบ Real-time ได้ผ่านคำสั่ง:
 ```bash
-docker logs -f auroracoin-solo-proxy
+docker logs -f solo-proxy
 ```
