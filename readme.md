@@ -17,7 +17,7 @@
 2. ตรวจสอบการดาวน์โหลดไลบรารีที่จำเป็น (หากต้องการรันจาก Source):
    ```bash
    go mod init soloproxy
-   go get [github.com/go-zeromq/zmq4](https://github.com/go-zeromq/zmq4)
+   go get github.com/go-zeromq/zmq4
    ```
 3. แก้ไขข้อมูลในไฟล์ `docker-compose.yml` ให้ตรงกับการใช้งานของคุณ:
    * `RPC_URL`, `RPC_USER`, `RPC_PASS`: ข้อมูลสำหรับเชื่อมต่อ RPC ของ Node
