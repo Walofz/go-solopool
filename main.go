@@ -158,6 +158,32 @@ func sendDiscordAlert(webhookURL, message string) {
         }
 }
 
+func sendBlockFoundAlert(webhookURL string, height uint32, diffShare float64, minerID string, wallet string) {
+	if webhookURL == "" {
+		return
+	}
+
+	embed := map[string]interface{}{
+		"title":       "🎉 พบบล็อกใหม่แล้ว! (Solo Mining)",
+		"description": "ระบบรับแชร์ที่ถูกต้องและทำการส่งบล็อกเข้าสู่โหนดเรียบร้อยแล้ว",
+		"color":       16766720,
+		"fields": []map[string]interface{}{
+			{"name": "📦 เลขบล็อก (Height)", "value": fmt.Sprintf("`#%d`", height), "inline": true},
+			{"name": "⛏️ ความยาก (Share Diff)", "value": fmt.Sprintf("`%s`", formatKMGT(diffShare)), "inline": true},
+			{"name": "🖥️ เครื่องขุดที่พบ", "value": fmt.Sprintf("`%s`", minerID), "inline": false},
+			{"name": "💼 กระเป๋าปลายทาง", "value": fmt.Sprintf("`%s`", wallet), "inline": false},
+		},
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+
+	payload := map[string]interface{}{"embeds": []interface{}{embed}}
+	body, _ := json.Marshal(payload)
+	resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(body))
+	if err == nil {
+		resp.Body.Close()
+	}
+}
+
 func (jm *JobManager) fetchBlockTemplate() {
         reqPayload := RPCRequest{
                 JSONRPC: "1.0",
@@ -446,7 +472,7 @@ func (jm *JobManager) handleMiner(conn net.Conn) {
 
                                 alertMsg := fmt.Sprintf("🎉 พบบล็อกใหม่แล้ว! | เลขบล็อก: #%d | (Share Diff: %s)", job.Height, formatKMGT(diffShare))
 				log.Println(alertMsg)
-                                sendDiscordAlert(jm.config.DiscordWebHook, alertMsg)
+                                sendBlockFoundAlert(jm.config.DiscordWebHook, job.Height, diffShare, minerID, jm.config.WalletAddress)
 
                                 txCount := encodeVarInt(uint64(len(job.TxHashes) + 1))
                                 blockHex := hex.EncodeToString(headerBytes) + txCount + coinbaseTxHex
