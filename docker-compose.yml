@@ -1,7 +1,7 @@
 services:
   soloproxy:
     build: .
-    container_name: auroracoin-solo-proxy
+    container_name: solo-proxy
     restart: unless-stopped
     network_mode: "host" 
     environment:
