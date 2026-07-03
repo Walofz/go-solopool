@@ -5,7 +5,7 @@ COPY *.go *.html ./
 RUN go mod init soloproxy && \
     go get github.com/go-zeromq/zmq4 && \
     go mod tidy
-RUN CGO_ENABLED=0 GOOS=linux go build -o proxy main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o proxy *.go
 
 
 FROM alpine:latest

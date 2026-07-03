@@ -26,5 +26,8 @@ jobs:
         fi
         go mod tidy
 
-    - name: Build Check
+    - name: Build Check (Go)
       run: go build -v ./...
+
+    - name: Build Check (Docker)
+      run: docker build -t solo-mining-proxy-test .
