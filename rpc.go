@@ -68,23 +68,49 @@ func (jm *JobManager) fetchBlockTemplate() {
 		return
 	}
 
+	if rpcResp.Error != nil {
+		log.Printf("❌ Node ส่ง Error กลับมา: %v", rpcResp.Error)
+		return
+	}
+
 	var jobData map[string]interface{}
-	json.Unmarshal(rpcResp.Result, &jobData)
+	if err := json.Unmarshal(rpcResp.Result, &jobData); err != nil || jobData == nil {
+		log.Printf("❌ ข้อมูล Result ว่างเปล่าหรืออ่านไม่ได้")
+		return
+	}
+
+	// ตรวจสอบข้อมูลที่สำคัญว่ามีอยู่จริงและถูกต้อง
+	heightFloat, ok1 := jobData["height"].(float64)
+	cbValueFloat, ok2 := jobData["coinbasevalue"].(float64)
+	prevHash, ok3 := jobData["previousblockhash"].(string)
+	versionFloat, ok4 := jobData["version"].(float64)
+	bitsHex, ok5 := jobData["bits"].(string)
+	curTimeFloat, ok6 := jobData["curtime"].(float64)
+
+	if !ok1 || !ok2 || !ok3 || !ok4 || !ok5 || !ok6 {
+		log.Printf("❌ Block template ข้อมูลไม่ครบถ้วน (Node อาจยังไม่พร้อมหรือกำลัง Sync)")
+		return
+	}
 
 	jm.Lock()
 	jm.jobIDCounter++
 	jobIDStr := fmt.Sprintf("%x", jm.jobIDCounter)
 
-	height := uint32(jobData["height"].(float64))
-	coinbaseValue := int64(jobData["coinbasevalue"].(float64))
+	height := uint32(heightFloat)
+	coinbaseValue := int64(cbValueFloat)
 
 	var txHashes []string
 	var txData []string
 	if txs, ok := jobData["transactions"].([]interface{}); ok {
 		for _, tx := range txs {
-			txMap := tx.(map[string]interface{})
-			txHashes = append(txHashes, txMap["hash"].(string))
-			txData = append(txData, txMap["data"].(string))
+			if txMap, ok := tx.(map[string]interface{}); ok {
+				hash, hashOk := txMap["hash"].(string)
+				data, dataOk := txMap["data"].(string)
+				if hashOk && dataOk {
+					txHashes = append(txHashes, hash)
+					txData = append(txData, data)
+				}
+			}
 		}
 	}
 
@@ -93,10 +119,10 @@ func (jm *JobManager) fetchBlockTemplate() {
 
 	newJob := &StratumJob{
 		JobID:          jobIDStr,
-		PrevHashHex:    jobData["previousblockhash"].(string),
-		Version:        uint32(jobData["version"].(float64)),
-		BitsHex:        jobData["bits"].(string),
-		CurTime:        fmt.Sprintf("%08x", int(jobData["curtime"].(float64))),
+		PrevHashHex:    prevHash,
+		Version:        uint32(versionFloat),
+		BitsHex:        bitsHex,
+		CurTime:        fmt.Sprintf("%08x", int(curTimeFloat)),
 		Height:         height,
 		CoinbaseValue:  coinbaseValue,
 		TxHashes:       txHashes,
@@ -114,10 +140,7 @@ func (jm *JobManager) fetchBlockTemplate() {
 
 	jm.jobs[jobIDStr] = newJob
 	jm.currentJob = newJob
-
-	if bitsHex, ok := jobData["bits"].(string); ok {
-		jm.NetworkDiff = targetToDiff(bitsToTarget(bitsHex))
-	}
+	jm.NetworkDiff = targetToDiff(bitsToTarget(bitsHex))
 
 	log.Printf("📦 ดึง Block Template สำเร็จ | Height: %d | Tx: %d | Diff: %s | Job: %s", height, len(txHashes), formatKMGT(jm.NetworkDiff), jobIDStr)
 	jm.Unlock()
