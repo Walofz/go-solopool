@@ -3,7 +3,7 @@ services:
     build: .
     container_name: solo-proxy
     restart: unless-stopped
-    network_mode: "host" 
+    network_mode: "host"
     environment:
       - TZ=Asia/Bangkok
       - RPC_URL=http://127.0.0.1:13031
@@ -14,4 +14,4 @@ services:
       - WEB_PORT=:8080
       - FIXED_DIFF=10000
       - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
-      - WALLET_ADDRESS=ใส่เลขกระเป๋า_Auroracoin_ของคุณที่นี่
+      - WALLET_ADDRESS=wallet_legacy_here
