@@ -1,7 +1,10 @@
 FROM alpine:latest
 WORKDIR /app
 
-COPY build/proxy *.html ./
+ARG TARGETARCH
+
+COPY build/proxy-${TARGETARCH} ./proxy
+COPY *.html ./
 
 EXPOSE 3333-3339
 CMD ["./proxy"]

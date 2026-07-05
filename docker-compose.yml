@@ -1,6 +1,6 @@
 services:
   soloproxy:
-    build: .
+    image: ghcr.io/walofz/go-solopool/solo-proxy:latest
     container_name: solo-proxy
     restart: unless-stopped
     network_mode: "host"
