@@ -18,6 +18,23 @@ var rpcClient = &http.Client{
 	},
 }
 
+var getBlockTemplatePayload []byte
+
+func init() {
+	req := RPCRequest{
+		JSONRPC: "1.0",
+		Method:  "getblocktemplate",
+		Params: []interface{}{
+			map[string]interface{}{
+				"rules": []string{"segwit"},
+				"algo":  "sha256d",
+			},
+		},
+		ID: 1,
+	}
+	getBlockTemplatePayload, _ = json.Marshal(req)
+}
+
 type RPCRequest struct {
 	JSONRPC string        `json:"jsonrpc"`
 	Method  string        `json:"method"`
@@ -45,30 +62,13 @@ type BlockTemplate struct {
 }
 
 func (jm *JobManager) fetchBlockTemplate() {
-	reqPayload := RPCRequest{
-		JSONRPC: "1.0",
-		Method:  "getblocktemplate",
-		Params: []interface{}{
-			map[string]interface{}{
-				"rules": []string{"segwit"},
-				"algo":  "sha256d",
-			},
-		},
-		ID: 1,
-	}
-
-	body, err := json.Marshal(reqPayload)
-	if err != nil {
-		log.Printf("❌ สร้าง Request ล้มเหลว: %v", err)
-		return
-	}
-
 	var resp *http.Response
+	var err error
 
 	for i := 0; i < 3; i++ {
-		req, err := http.NewRequest("POST", jm.config.RPCUrl, bytes.NewBuffer(body))
-		if err != nil {
-			log.Printf("❌ เตรียม HTTP Request ล้มเหลว: %v", err)
+		req, errReq := http.NewRequest("POST", jm.config.RPCUrl, bytes.NewReader(getBlockTemplatePayload))
+		if errReq != nil {
+			log.Printf("❌ เตรียม HTTP Request ล้มเหลว: %v", errReq)
 			return
 		}
 
@@ -165,7 +165,7 @@ func (jm *JobManager) submitBlockToNode(blockHex string) {
 		return
 	}
 
-	req, err := http.NewRequest("POST", jm.config.RPCUrl, bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", jm.config.RPCUrl, bytes.NewReader(body))
 	if err != nil {
 		log.Printf("❌ เตรียม HTTP Request ล้มเหลว: %v", err)
 		return
@@ -182,6 +182,9 @@ func (jm *JobManager) submitBlockToNode(blockHex string) {
 	defer resp.Body.Close()
 
 	var rpcResp RPCResponse
-	json.NewDecoder(resp.Body).Decode(&rpcResp)
+	if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
+		log.Printf("อ่านผลลัพธ์ submitblock ล้มเหลว: %v", err)
+		return
+	}
 	log.Printf("ผลลัพธ์จาก Node หลังจาก submitblock: %s", string(rpcResp.Result))
 }
