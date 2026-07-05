@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -105,11 +106,12 @@ func (jm *JobManager) fetchBlockTemplate() {
 		return
 	}
 
-	txHashes := make([]string, 0, len(bt.Transactions))
-	txData := make([]string, 0, len(bt.Transactions))
-	for _, tx := range bt.Transactions {
-		txHashes = append(txHashes, tx.Hash)
-		txData = append(txData, tx.Data)
+	txCount := len(bt.Transactions)
+	txHashes := make([]string, txCount)
+	txData := make([]string, txCount)
+	for i, tx := range bt.Transactions {
+		txHashes[i] = tx.Hash
+		txData[i] = tx.Data
 	}
 
 	merkleBranches := buildMerkleBranches(txHashes)
@@ -118,7 +120,7 @@ func (jm *JobManager) fetchBlockTemplate() {
 
 	jm.Lock()
 	jm.jobIDCounter++
-	jobIDStr := fmt.Sprintf("%x", jm.jobIDCounter)
+	jobIDStr := strconv.FormatUint(uint64(jm.jobIDCounter), 16)
 
 	newJob := &StratumJob{
 		JobID:          jobIDStr,
@@ -145,25 +147,15 @@ func (jm *JobManager) fetchBlockTemplate() {
 	jm.currentJob = newJob
 	jm.NetworkDiff = targetToDiff(bitsToTarget(bt.Bits))
 
-	log.Printf("📦 ดึง Block Template สำเร็จ | Height: %d | Tx: %d | Diff: %s | Job: %s", bt.Height, len(txHashes), formatKMGT(jm.NetworkDiff), jobIDStr)
+	log.Printf("📦 ดึง Block Template สำเร็จ | Height: %d | Tx: %d | Diff: %s | Job: %s", bt.Height, txCount, formatKMGT(jm.NetworkDiff), jobIDStr)
 	jm.Unlock()
 
 	jm.broadcastNewJob()
 }
 
 func (jm *JobManager) submitBlockToNode(blockHex string) {
-	reqPayload := RPCRequest{
-		JSONRPC: "1.0",
-		Method:  "submitblock",
-		Params:  []interface{}{blockHex},
-		ID:      2,
-	}
-
-	body, err := json.Marshal(reqPayload)
-	if err != nil {
-		log.Printf("❌ สร้าง Request สำหรับ Submit ล้มเหลว: %v", err)
-		return
-	}
+	payloadStr := `{"jsonrpc":"1.0","method":"submitblock","params":["` + blockHex + `"],"id":2}`
+	body := []byte(payloadStr)
 
 	req, err := http.NewRequest("POST", jm.config.RPCUrl, bytes.NewReader(body))
 	if err != nil {
