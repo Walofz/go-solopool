@@ -29,17 +29,17 @@ type MinerStatus struct {
 }
 
 type StatsResponse struct {
-	Wallet      string         `json:"wallet"`
-	NetDiff     string         `json:"network_diff"`
-	FixedDiff   int            `json:"fixed_diff"`
-	MinersCount int            `json:"miners_count"`
-	Shares      int            `json:"shares"`
-	Blocks      int            `json:"blocks"`
-	Uptime      string         `json:"uptime"`
-	UseVardiff  bool           `json:"use_vardiff"`
-	NetworkDiff float64        `json:"network_diff_value"`
-	Miners      []MinerStatus  `json:"miners"`
-	BlocksList  []BlockRecord  `json:"blocks_list"`
+	Wallet      string        `json:"wallet"`
+	NetDiff     string        `json:"network_diff"`
+	FixedDiff   int           `json:"fixed_diff"`
+	MinersCount int           `json:"miners_count"`
+	Shares      int           `json:"shares"`
+	Blocks      int           `json:"blocks"`
+	Uptime      string        `json:"uptime"`
+	UseVardiff  bool          `json:"use_vardiff"`
+	NetworkDiff float64       `json:"network_diff_value"`
+	Miners      []MinerStatus `json:"miners"`
+	BlocksList  []BlockRecord `json:"blocks_list"`
 }
 
 type BlockRecord struct {
@@ -175,13 +175,7 @@ func (jm *JobManager) handleMiner(conn net.Conn) {
 			authResp := fmt.Sprintf(`{"id":%s,"result":true,"error":null}`+"\n", idStr)
 			conn.Write([]byte(authResp))
 
-			diffValue := jm.config.FixedDiff
-			if jm.config.UseVardiff {
-				diffValue = miner.diff
-			}
-			diffResp := fmt.Sprintf(`{"id":null,"method":"mining.set_difficulty","params":[%d]}`+"\n", diffValue)
-			conn.Write([]byte(diffResp))
-
+			jm.sendDifficultyToMiner(miner)
 			jm.sendJobToMiner(miner)
 
 		case "mining.submit":
@@ -317,9 +311,29 @@ func calculateVardiff(currentDiff, shareRate, targetRate, minDiff, maxDiff int) 
 	return newDiff
 }
 
+func (jm *JobManager) getEffectiveDifficulty(miner *Miner) int {
+	if jm.config.UseVardiff && miner != nil {
+		return miner.diff
+	}
+	return jm.config.FixedDiff
+}
+
+func (jm *JobManager) sendDifficultyToMiner(miner *Miner) {
+	if miner == nil {
+		return
+	}
+
+	diffValue := jm.getEffectiveDifficulty(miner)
+	resp := fmt.Sprintf(`{"id":null,"method":"mining.set_difficulty","params":[%d]}`+"\n", diffValue)
+	_, _ = miner.conn.Write([]byte(resp))
+}
+
 func (jm *JobManager) updateMinerVardiff(miner *Miner) {
 	miner.shareTimes = append(miner.shareTimes, time.Now())
-	window := 30
+	window := jm.config.VardiffWindow
+	if window <= 0 {
+		window = 30
+	}
 	if len(miner.shareTimes) > window {
 		miner.shareTimes = miner.shareTimes[len(miner.shareTimes)-window:]
 	}
@@ -334,14 +348,22 @@ func (jm *JobManager) updateMinerVardiff(miner *Miner) {
 	}
 
 	shareRate := float64(len(miner.shareTimes)) / latest.Sub(oldest).Seconds()
-	targetRate := 4.0
-	newDiff := calculateVardiff(miner.diff, int(shareRate), int(targetRate), 64, 10000)
+	targetRate := jm.config.VardiffTarget
+	if targetRate <= 0 {
+		targetRate = 4.0
+	}
+	minDiff := jm.config.VardiffMinDiff
+	if minDiff <= 0 {
+		minDiff = 64
+	}
+	maxDiff := jm.config.VardiffMaxDiff
+	if maxDiff <= 0 {
+		maxDiff = 10000
+	}
+	newDiff := calculateVardiff(miner.diff, int(shareRate), int(targetRate), minDiff, maxDiff)
 	miner.diff = newDiff
 
-	if miner.diff != jm.config.FixedDiff {
-		resp := fmt.Sprintf(`{"id":null,"method":"mining.set_difficulty","params":[%d]}`+"\n", miner.diff)
-		_, _ = miner.conn.Write([]byte(resp))
-	}
+	jm.sendDifficultyToMiner(miner)
 }
 
 func (jm *JobManager) sendJobToMiner(m *Miner) {
@@ -357,6 +379,8 @@ func (jm *JobManager) sendJobToMiner(m *Miner) {
 	versionHex := fmt.Sprintf("%08x", job.Version)
 
 	stratumPrevHash := makeStratumPrevHash(job.PrevHashHex)
+
+	jm.sendDifficultyToMiner(m)
 
 	jobNotify := fmt.Sprintf(`{"id":null,"method":"mining.notify","params":["%s","%s","%s","%s",%s,"%s","%s","%s",true]}`+"\n",
 		job.JobID, stratumPrevHash, job.Coinb1, job.Coinb2, string(merkleBranchesJSON), versionHex, job.BitsHex, job.CurTime)

@@ -1,6 +1,6 @@
 module soloproxy
 
-go 1.21.0
+go 1.25.0
 
 require (
 	github.com/go-zeromq/zmq4 v0.17.0
