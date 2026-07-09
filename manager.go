@@ -144,6 +144,9 @@ func (jm *JobManager) handleMiner(conn net.Conn) {
 	}()
 
 	scanner := bufio.NewScanner(conn)
+	// increase buffer to handle large stratum messages (coinbase, job payloads)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024) // allow up to 1MB tokens
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -151,6 +154,9 @@ func (jm *JobManager) handleMiner(conn net.Conn) {
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
 			log.Printf("❌ รูปแบบ JSON ไม่ถูกต้องจาก Miner: %v", err)
 			break
+		}
+		if err := scanner.Err(); err != nil {
+			log.Printf("Scanner error from %s: %v", minerID, err)
 		}
 
 		method, _ := msg["method"].(string)
@@ -296,12 +302,13 @@ func parseVersionBits(params []interface{}) (uint32, bool) {
 	}
 }
 
-func calculateVardiff(currentDiff, shareRate, targetRate, minDiff, maxDiff int) int {
-	if shareRate <= 0 {
+func calculateVardiff(currentDiff int, shareRate, targetRate float64, minDiff, maxDiff int) int {
+	if shareRate <= 0 || targetRate <= 0 {
 		return currentDiff
 	}
 
-	newDiff := currentDiff * shareRate / targetRate
+	newDiffF := float64(currentDiff) * (shareRate / targetRate)
+	newDiff := int(newDiffF + 0.5) // round to nearest
 	if newDiff < minDiff {
 		newDiff = minDiff
 	}
@@ -360,7 +367,7 @@ func (jm *JobManager) updateMinerVardiff(miner *Miner) {
 	if maxDiff <= 0 {
 		maxDiff = 10000
 	}
-	newDiff := calculateVardiff(miner.diff, int(shareRate), int(targetRate), minDiff, maxDiff)
+	newDiff := calculateVardiff(miner.diff, shareRate, targetRate, minDiff, maxDiff)
 	miner.diff = newDiff
 
 	jm.sendDifficultyToMiner(miner)
