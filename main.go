@@ -37,11 +37,7 @@ func main() {
 	}
 	defer listener.Close()
 
-	if cfg.UseVardiff {
-		log.Printf("Stratum Server ทำงานบนพอร์ต %s (Vardiff enabled)", cfg.StratumPort)
-	} else {
-		log.Printf("Stratum Server ทำงานบนพอร์ต %s (Fixed Diff: %d)", cfg.StratumPort, cfg.FixedDiff)
-	}
+	log.Printf("Stratum Server ทำงานบนพอร์ต %s (Fixed Diff: %d)", cfg.StratumPort, cfg.FixedDiff)
 	log.Printf("ขุดเข้ากระเป๋า: %s", cfg.WalletAddress)
 
 	for {

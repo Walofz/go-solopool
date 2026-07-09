@@ -1,6 +1,6 @@
 # Go SoloPool
 
-ระบบ Solo Mining Proxy สำหรับขุดแบบ Solo บนเครือข่ายที่รองรับ Stratum และ RPC โดยมีฟีเจอร์พื้นฐานสำหรับตัวขุด ASIC, vardiff, SQLite storage และ JSON stats API
+ระบบ Solo Mining Proxy สำหรับขุดแบบ Solo บนเครือข่ายที่รองรับ Stratum และ RPC โดยมีฟีเจอร์พื้นฐานสำหรับตัวขุด ASIC, SQLite storage และ JSON stats API
 
 ## คุณสมบัติหลัก
 
@@ -19,7 +19,6 @@
    - RPC_URL / RPC_USER / RPC_PASS
    - WALLET_ADDRESS
    - DISCORD_WEBHOOK_URL (ถ้ามี)
-   - USE_VARDIFF=no หรือ yes
    - FIXED_DIFF=8096
 3. รันด้วย Docker:
 
@@ -29,9 +28,8 @@ docker compose up -d --build
 
 ## ตัวเลือกสิ่งแวดล้อม
 
-- USE_VARDIFF=no : ใช้ความยากคงที่ที่ 8096
-- USE_VARDIFF=yes : เปิด vardiff แบบอัตโนมัติ
-- DB_PATH=./soloproxy.db : ที่เก็บฐานข้อมูล SQLite
+- `FIXED_DIFF=8096` : ความยากคงที่ที่ส่งให้เครื่องขุด
+- `DB_PATH=./soloproxy.db` : ที่เก็บฐานข้อมูล SQLite
 
 ## การเชื่อมต่อเครื่องขุด
 

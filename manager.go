@@ -36,7 +36,6 @@ type StatsResponse struct {
 	Shares      int           `json:"shares"`
 	Blocks      int           `json:"blocks"`
 	Uptime      string        `json:"uptime"`
-	UseVardiff  bool          `json:"use_vardiff"`
 	NetworkDiff float64       `json:"network_diff_value"`
 	Miners      []MinerStatus `json:"miners"`
 	BlocksList  []BlockRecord `json:"blocks_list"`
@@ -144,9 +143,8 @@ func (jm *JobManager) handleMiner(conn net.Conn) {
 	}()
 
 	scanner := bufio.NewScanner(conn)
-	// increase buffer to handle large stratum messages (coinbase, job payloads)
 	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1024*1024) // allow up to 1MB tokens
+	scanner.Buffer(buf, 1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -210,10 +208,6 @@ func (jm *JobManager) handleMiner(conn net.Conn) {
 			miner.shareCount++
 			miner.lastSeen = time.Now()
 			jm.Unlock()
-
-			if jm.config.UseVardiff {
-				jm.updateMinerVardiff(miner)
-			}
 
 			version := job.Version
 			if versionBits, ok := parseVersionBits(params); ok {
@@ -302,26 +296,7 @@ func parseVersionBits(params []interface{}) (uint32, bool) {
 	}
 }
 
-func calculateVardiff(currentDiff int, shareRate, targetRate float64, minDiff, maxDiff int) int {
-	if shareRate <= 0 || targetRate <= 0 {
-		return currentDiff
-	}
-
-	newDiffF := float64(currentDiff) * (shareRate / targetRate)
-	newDiff := int(newDiffF + 0.5) // round to nearest
-	if newDiff < minDiff {
-		newDiff = minDiff
-	}
-	if newDiff > maxDiff {
-		newDiff = maxDiff
-	}
-	return newDiff
-}
-
 func (jm *JobManager) getEffectiveDifficulty(miner *Miner) int {
-	if jm.config.UseVardiff && miner != nil {
-		return miner.diff
-	}
 	return jm.config.FixedDiff
 }
 
@@ -333,44 +308,6 @@ func (jm *JobManager) sendDifficultyToMiner(miner *Miner) {
 	diffValue := jm.getEffectiveDifficulty(miner)
 	resp := fmt.Sprintf(`{"id":null,"method":"mining.set_difficulty","params":[%d]}`+"\n", diffValue)
 	_, _ = miner.conn.Write([]byte(resp))
-}
-
-func (jm *JobManager) updateMinerVardiff(miner *Miner) {
-	miner.shareTimes = append(miner.shareTimes, time.Now())
-	window := jm.config.VardiffWindow
-	if window <= 0 {
-		window = 30
-	}
-	if len(miner.shareTimes) > window {
-		miner.shareTimes = miner.shareTimes[len(miner.shareTimes)-window:]
-	}
-	if len(miner.shareTimes) < 2 {
-		return
-	}
-
-	oldest := miner.shareTimes[0]
-	latest := miner.shareTimes[len(miner.shareTimes)-1]
-	if latest.Sub(oldest) <= 0 {
-		return
-	}
-
-	shareRate := float64(len(miner.shareTimes)) / latest.Sub(oldest).Seconds()
-	targetRate := jm.config.VardiffTarget
-	if targetRate <= 0 {
-		targetRate = 4.0
-	}
-	minDiff := jm.config.VardiffMinDiff
-	if minDiff <= 0 {
-		minDiff = 64
-	}
-	maxDiff := jm.config.VardiffMaxDiff
-	if maxDiff <= 0 {
-		maxDiff = 10000
-	}
-	newDiff := calculateVardiff(miner.diff, shareRate, targetRate, minDiff, maxDiff)
-	miner.diff = newDiff
-
-	jm.sendDifficultyToMiner(miner)
 }
 
 func (jm *JobManager) sendJobToMiner(m *Miner) {
@@ -414,14 +351,14 @@ func (jm *JobManager) initDB() error {
 	}
 
 	if _, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS blocks (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			height INTEGER NOT NULL,
-			found_at DATETIME NOT NULL,
-			diff_share REAL NOT NULL,
-			miner_id TEXT NOT NULL
-		)
-	`); err != nil {
+        CREATE TABLE IF NOT EXISTS blocks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            height INTEGER NOT NULL,
+            found_at DATETIME NOT NULL,
+            diff_share REAL NOT NULL,
+            miner_id TEXT NOT NULL
+        )
+    `); err != nil {
 		db.Close()
 		return err
 	}
@@ -436,8 +373,8 @@ func (jm *JobManager) saveBlockRecord(height uint32, diffShare float64, minerID 
 	}
 
 	_, err := jm.db.Exec(`
-		INSERT INTO blocks (height, found_at, diff_share, miner_id) VALUES (?, ?, ?, ?)
-	`, height, time.Now().UTC().Format(time.RFC3339), diffShare, minerID)
+        INSERT INTO blocks (height, found_at, diff_share, miner_id) VALUES (?, ?, ?, ?)
+    `, height, time.Now().UTC().Format(time.RFC3339), diffShare, minerID)
 	return err
 }
 
@@ -447,8 +384,8 @@ func (jm *JobManager) loadBlockRecords() []BlockRecord {
 	}
 
 	rows, err := jm.db.Query(`
-		SELECT id, height, found_at, diff_share, miner_id FROM blocks ORDER BY found_at DESC LIMIT 50
-	`)
+        SELECT id, height, found_at, diff_share, miner_id FROM blocks ORDER BY found_at DESC LIMIT 50
+    `)
 	if err != nil {
 		return nil
 	}
@@ -498,7 +435,6 @@ func (jm *JobManager) buildStatsResponse() StatsResponse {
 		Shares:      jm.TotalShares,
 		Blocks:      jm.BlocksFound,
 		Uptime:      time.Since(jm.StartTime).Round(time.Second).String(),
-		UseVardiff:  jm.config.UseVardiff,
 		NetworkDiff: jm.NetworkDiff,
 		Miners:      jm.minerStatuses(),
 		BlocksList:  blocksList,
