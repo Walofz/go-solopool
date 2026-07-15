@@ -6,10 +6,11 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"strconv"
 	"fmt"
 	"math/big"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -26,29 +27,72 @@ func sendDiscordAlert(webhookURL, message string) {
 	}
 }
 
-func sendBlockFoundAlert(webhookURL string, height uint32, diffShare float64, minerID string, wallet string) {
-	if webhookURL == "" {
+func sendNtfyAlert(ntfyURL, subject, message string) {
+	if ntfyURL == "" {
 		return
 	}
-
-	embed := map[string]interface{}{
-		"title":       "🎉 พบบล็อกใหม่แล้ว! (Solo Mining)",
-		"description": "ระบบรับแชร์ที่ถูกต้องและทำการส่งบล็อกเข้าสู่โหนดเรียบร้อยแล้ว",
-		"color":       16766720,
-		"fields": []map[string]interface{}{
-			{"name": "📦 เลขบล็อก (Height)", "value": fmt.Sprintf("`#%d`", height), "inline": true},
-			{"name": "⛏️ ความยาก (Share Diff)", "value": fmt.Sprintf("`%s`", formatKMGT(diffShare)), "inline": true},
-			{"name": "🖥️ เครื่องขุดที่พบ", "value": fmt.Sprintf("`%s`", minerID), "inline": false},
-			{"name": "💼 กระเป๋าปลายทาง", "value": fmt.Sprintf("`%s`", wallet), "inline": false},
-		},
-		"timestamp": time.Now().Format(time.RFC3339),
+	parsedURL, err := url.Parse(ntfyURL)
+	if err != nil {
+		return
 	}
-
-	payload := map[string]interface{}{"embeds": []interface{}{embed}}
+	payload := map[string]string{"title": subject, "message": message}
 	body, _ := json.Marshal(payload)
-	resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", parsedURL.String(), bytes.NewBuffer(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if parsedURL.User != nil {
+		username := parsedURL.User.Username()
+		password, _ := parsedURL.User.Password()
+		req.SetBasicAuth(username, password)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err == nil {
 		resp.Body.Close()
+	}
+}
+
+func sendNotification(cfg Config, message string) {
+	subject := "Solo Mining Proxy"
+	discordMsg := message
+	ntfyMsg := "Solo mining proxy started"
+
+	switch strings.ToLower(cfg.NotifyProvider) {
+	case "discord":
+		sendDiscordAlert(cfg.DiscordWebHook, discordMsg)
+	case "ntfy":
+		sendNtfyAlert(cfg.NtfyUrl, subject, ntfyMsg)
+	default:
+		if cfg.DiscordWebHook != "" {
+			sendDiscordAlert(cfg.DiscordWebHook, discordMsg)
+			return
+		}
+		if cfg.NtfyUrl != "" {
+			sendNtfyAlert(cfg.NtfyUrl, subject, ntfyMsg)
+		}
+	}
+}
+
+func sendBlockFoundNotification(cfg Config, height uint32, diffShare float64, minerID string, wallet string) {
+	discordTitle := "🎉 พบบล็อกใหม่แล้ว! (Solo Mining)"
+	ntfyTitle := "บล็อกใหม่"
+	discordMsg := fmt.Sprintf("🎉 พบบล็อกใหม่แล้ว! Height: #%d | Share Diff: %s | Miner: %s | Wallet: %s", height, formatKMGT(diffShare), minerID, wallet)
+	ntfyMsg := fmt.Sprintf("บล็อก #%d ที่ความยาก %s ด้วยเครื่อง %s", height, formatKMGT(diffShare), minerID)
+
+	switch strings.ToLower(cfg.NotifyProvider) {
+	case "discord":
+		sendBlockFoundAlert(cfg.DiscordWebHook, height, diffShare, minerID, wallet)
+	case "ntfy":
+		sendNtfyAlert(cfg.NtfyUrl, ntfyTitle, ntfyMsg)
+	default:
+		if cfg.DiscordWebHook != "" {
+			sendBlockFoundAlert(cfg.DiscordWebHook, height, diffShare, minerID, wallet)
+			return
+		}
+		if cfg.NtfyUrl != "" {
+			sendNtfyAlert(cfg.NtfyUrl, ntfyTitle, ntfyMsg)
+		}
 	}
 }
 

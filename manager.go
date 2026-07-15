@@ -244,7 +244,7 @@ func (jm *JobManager) handleMiner(conn net.Conn) {
 
 				alertMsg := fmt.Sprintf("🎉 พบบล็อกใหม่แล้ว! | เลขบล็อก: #%d | (Share Diff: %s)", job.Height, formatKMGT(diffShare))
 				log.Println(alertMsg)
-				sendBlockFoundAlert(jm.config.DiscordWebHook, job.Height, diffShare, minerID, jm.config.WalletAddress)
+				sendBlockFoundNotification(jm.config, job.Height, diffShare, minerID, jm.config.WalletAddress)
 				_ = jm.saveBlockRecord(job.Height, diffShare, minerID)
 
 				txCount := encodeVarInt(uint64(len(job.TxHashes) + 1))

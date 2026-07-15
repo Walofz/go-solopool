@@ -13,5 +13,7 @@ services:
       - STRATUM_PORT=:3333
       - WEB_PORT=:8080
       - FIXED_DIFF=8096
+      - NOTIFY_PROVIDER=auto
       - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
+      - NTFY_URL=https://user:pass@ntfy.example.com/your-topic
       - WALLET_ADDRESS=wallet_legacy_here

@@ -7,7 +7,7 @@
 - Stratum protocol support สำหรับเครื่องขุด ASIC
 - AsicBoost / version-rolling support
 - ZeroMQ (ZMQ) integration เพื่อรับ hashblock จาก node ทันที
-- Discord webhook notification เมื่อเจอบล็อกหรือเริ่มระบบ
+- Discord / ntfy notification เมื่อเจอบล็อกหรือเริ่มระบบ
 - JSON stats API ที่ให้ข้อมูลสถานะและประวัติบล็อกผ่าน HTTP
 - SQLite storage สำหรับเก็บประวัติบล็อกแบบถาวร
 - Docker ready และใช้กับ docker-compose ได้ทันที
@@ -19,6 +19,8 @@
    - RPC_URL / RPC_USER / RPC_PASS
    - WALLET_ADDRESS
    - DISCORD_WEBHOOK_URL (ถ้ามี)
+   - NTFY_URL (ถ้ามี, รองรับ https://user:pass@ntfy.example.com/your-topic)
+   - NOTIFY_PROVIDER=auto|discord|ntfy
    - FIXED_DIFF=8096
 3. รันด้วย Docker:
 

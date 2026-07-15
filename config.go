@@ -13,7 +13,9 @@ type Config struct {
 	StratumPort    string
 	WebPort        string
 	FixedDiff      int
+	NotifyProvider string
 	DiscordWebHook string
+	NtfyUrl        string
 	WalletAddress  string
 	DBPath         string
 }
@@ -29,7 +31,9 @@ func loadConfig() Config {
 		StratumPort:    getEnv("STRATUM_PORT", ":3333"),
 		WebPort:        getEnv("WEB_PORT", ":8080"),
 		FixedDiff:      diff,
+		NotifyProvider: getEnv("NOTIFY_PROVIDER", "auto"),
 		DiscordWebHook: getEnv("DISCORD_WEBHOOK_URL", ""),
+		NtfyUrl:        getEnv("NTFY_URL", ""),
 		WalletAddress:  getEnv("WALLET_ADDRESS", ""),
 		DBPath:         getEnv("DB_PATH", "./soloproxy.db"),
 	}

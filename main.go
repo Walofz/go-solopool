@@ -25,7 +25,7 @@ func main() {
 		log.Fatalf("ไม่สามารถเปิดฐานข้อมูล SQLite ได้: %v", err)
 	}
 
-	sendDiscordAlert(cfg.DiscordWebHook, "🚀 ระบบ Solo Mining Proxy (AsicBoost Enabled) เริ่มทำงานแล้ว")
+	sendNotification(cfg, "🚀 ระบบ Solo Mining Proxy (AsicBoost Enabled) เริ่มทำงานแล้ว")
 
 	go manager.listenZMQ()
 	go manager.templateWorker()
