@@ -57,13 +57,12 @@ func sendNtfyAlert(ntfyURL, subject, message string) {
 	if err != nil {
 		return
 	}
-	payload := map[string]string{"title": subject, "message": message}
-	body, _ := json.Marshal(payload)
-	req, err := http.NewRequest("POST", parsedURL.String(), bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", parsedURL.String(), strings.NewReader(message))
 	if err != nil {
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Title", subject)
+	req.Header.Set("Content-Type", "text/plain; charset=utf-8")
 	if parsedURL.User != nil {
 		username := parsedURL.User.Username()
 		password, _ := parsedURL.User.Password()
